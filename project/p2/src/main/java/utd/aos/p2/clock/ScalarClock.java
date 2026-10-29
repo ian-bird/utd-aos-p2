@@ -3,7 +3,7 @@ package utd.aos.p2.clock;
 import java.io.Serializable;
 
 public class ScalarClock implements Serializable, Clock<ScalarClock> {
-    protected int counter;
+    public int counter;
 
     public ScalarClock() {
         this.counter = 0;
