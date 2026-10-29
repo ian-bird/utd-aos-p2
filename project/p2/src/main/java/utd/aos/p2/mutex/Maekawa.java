@@ -30,6 +30,7 @@ public class Maekawa implements Mutex {
     private boolean failed;
 
     private boolean debugMode;
+    private boolean inCritical;
     
 
     public Maekawa(int myId, Pusher<MutexData> incoming, List<Pusher<MutexData>> outgoing,
@@ -53,11 +54,14 @@ public class Maekawa implements Mutex {
         this.id = myId;
         this.failed = false;
         this.debugMode = false;
+        this.inCritical = false;
 
         incoming.registerCallback(workQueue::push);
 
         this.workQueue.registerCallback((in) -> {
             this.workQueue.pull();
+
+            while(inCritical);
 
             debugLog("%d received %s\n", myId, in.toString());
 
@@ -146,14 +150,25 @@ public class Maekawa implements Mutex {
             c = c.send();
         }
 
-        // block until done
+        // block until acquired
         p.arriveAndAwaitAdvance();
+
+        // in the critical section the other code must be blocked.
+        synchronized(this) {
+            inCritical = true;
+        }
+
     }
 
     @Override
     public void csLeave() {
         // tell everyone in the quorum that we're done
         outputsById.values().stream().forEach((o) -> o.push(new Release(id)));
+
+        // and unblock the message handler.
+        synchronized(this) {
+            inCritical = false;
+        }
     }
 
     public void enableLogging() {
