@@ -2,6 +2,6 @@ package utd.aos.p2;
 
 public class Test {
     public static void main(String[] args) throws Exception {
-
+        Main.readConfigParams("./inputs/sample-input.txt");
     }
 }
