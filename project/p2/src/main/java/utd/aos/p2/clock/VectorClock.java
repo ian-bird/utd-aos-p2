@@ -6,7 +6,7 @@ import java.util.List;
 
 import utd.aos.p2.utils.Pair;
 
-public class VectorClock implements Serializable {
+public class VectorClock implements Serializable, Clock<VectorClock> {
     public List<Integer> vector;
     public int associatedProcess;
 
