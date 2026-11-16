@@ -1,0 +1,13 @@
+# numNodes meanInterRequestDelayMs meanCsExecutionTimeMs numRequestsPerNode
+2 20 10 5
+
+# Node information
+0 dc02 1230
+1 dc03 1231
+
+# Quorum definitions
+0 1
+0 1
+
+# Having everyone in the same quorum here ""degrades"" the
+# quorum system down to "ask everyone for the lock"! (I think?)
