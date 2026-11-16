@@ -61,7 +61,13 @@ public class Maekawa implements Mutex {
         this.workQueue.registerCallback((in) -> {
             this.workQueue.pull();
 
-            while(inCritical);
+            boolean crit = false;
+            do {
+                synchronized(this) {
+                    crit = this.inCritical;
+                }
+            }
+            while(crit);
 
             debugLog("%d received %s\n", myId, in.toString());
 
@@ -81,6 +87,7 @@ public class Maekawa implements Mutex {
                         } else {
                             debugLog("%d inquiring about %s to %d\n", myId, r.toString(), grantedTo.senderId);
                             outputsById.get(grantedTo.senderId).push(new Inquire(myId, r));
+                            debugLog("pushed.\n");
                         }
                     }, () -> {
                         debugLog("%d granting %s\n",myId, r);
@@ -162,13 +169,17 @@ public class Maekawa implements Mutex {
 
     @Override
     public void csLeave() {
-        // tell everyone in the quorum that we're done
-        outputsById.values().stream().forEach((o) -> o.push(new Release(id)));
+        debugLog("saying we're done to %s\n", outputsById.toString());
 
-        // and unblock the message handler.
+        // unblock the message handler.
         synchronized(this) {
+            debugLog("released critical flag.\n");
             inCritical = false;
         }
+
+
+        // and tell everyone in the quorum that we're done
+        outputsById.values().stream().forEach((o) -> o.push(new Release(id)));
     }
 
     public void enableLogging() {

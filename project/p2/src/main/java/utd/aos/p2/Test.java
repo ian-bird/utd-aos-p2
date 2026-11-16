@@ -44,8 +44,8 @@ public class Test {
                 Thread.sleep(100);
             }catch(Exception _e) {
             }
+            System.out.println("a leaving...");
             a.csLeave();
-            System.out.println("a left.");
 
             try{
                 Thread.sleep(20);
@@ -58,8 +58,8 @@ public class Test {
                 Thread.sleep(100);
             }catch(Exception _e) {
             }
+            System.out.println("b leaving...");
             b.csLeave();
-            System.out.println("b left.");
         });
 
         CompletableFuture.runAsync(()->{
@@ -75,8 +75,8 @@ public class Test {
                 Thread.sleep(100);
             }catch(Exception _e) {
             }
+            System.out.println("c leaving...");
             c.csLeave();
-            System.out.println("c left.");
         });
 
         try{
