@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import utd.aos.p2.mutex.Maekawa;
+import utd.aos.p2.mutex.Maekawa2;
 import utd.aos.p2.mutex.MutexData;
-import utd.aos.p2.mutex.Preemption;
 import utd.aos.p2.pusher.Pusher;
 import utd.aos.p2.pusher.SubscriberManager;
 
@@ -26,17 +26,17 @@ public class Test {
         }
 
         // a = {0,1}
-        var a = new Maekawa(0, inputChannels.get(0),
-                Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
-        
+        var a = new Maekawa2(0, inputChannels.get(0),
+                Arrays.asList(inputChannels.get(1)), Arrays.asList(1));
+
         // b = {0, 1, 2}
-        var b = new Maekawa(1, inputChannels.get(1),
+        var b = new Maekawa2(1, inputChannels.get(1),
                 Arrays.asList(inputChannels.get(0), inputChannels.get(2)),
-                Arrays.asList(0, 2), new Preemption());
+                Arrays.asList(0, 2));
 
         // c = {1 , 2}
-        var c = new Maekawa(2, inputChannels.get(2),
-                Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
+        var c = new Maekawa2(2, inputChannels.get(2),
+                Arrays.asList(inputChannels.get(1)), Arrays.asList(1));
 
         // a.enableLogging();
         // b.enableLogging();
@@ -103,7 +103,8 @@ public class Test {
         System.out.printf("1: %s\n", b.toString());
         System.out.printf("2: %s\n", c.toString());
 
-        while(true);
+        while (true)
+            ;
     }
 
     private static void MaekawaTest() {
@@ -114,12 +115,12 @@ public class Test {
         }
 
         var a = new Maekawa(0, inputChannels.get(0),
-                Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
+                Arrays.asList(inputChannels.get(1)), Arrays.asList(1));
         var b = new Maekawa(1, inputChannels.get(1),
                 Arrays.asList(inputChannels.get(0), inputChannels.get(2)),
-                Arrays.asList(0, 2), new Preemption());
+                Arrays.asList(0, 2));
         var c = new Maekawa(2, inputChannels.get(2),
-                Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
+                Arrays.asList(inputChannels.get(1)), Arrays.asList(1));
 
         a.enableLogging();
         b.enableLogging();

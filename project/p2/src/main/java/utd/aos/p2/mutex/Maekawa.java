@@ -33,8 +33,6 @@ public class Maekawa implements Mutex {
     private boolean debugMode;
     private boolean inCritical;
 
-    private Object sentinel;
-
     public String toString() {
         return "{\"q\": " + q.toString() +
                 ", \"c\": " + c.toString() +
@@ -49,7 +47,7 @@ public class Maekawa implements Mutex {
     }
 
     public Maekawa(int myId, Pusher<MutexData> incoming, List<Pusher<MutexData>> outgoing,
-            List<Integer> quoremMemberIds, MaekawaStrategy deadlockResolution) {
+            List<Integer> quoremMemberIds) {
         this.q = new PriorityQueue<>((a, b) -> Integer.compare(a.timeStamp, b.timeStamp));
         this.workQueue = new BufferedChan<>();
         this.id = myId;
