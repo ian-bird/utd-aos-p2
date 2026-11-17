@@ -27,7 +27,7 @@ public class Maekawa implements Mutex {
     private Phaser p;
     private Map<Integer, Pusher<MutexData>> outputsById;
     private Optional<Request> granted;
-    private int id;
+    public final int id;
     private boolean failed;
 
     private boolean debugMode;
@@ -64,7 +64,6 @@ public class Maekawa implements Mutex {
                 .forEach((p) -> this.outputsById.put(p.getKey(), p.getValue()));
 
         this.granted = Optional.empty();
-        this.id = myId;
         this.failed = false;
         this.debugMode = false;
         this.inCritical = false;

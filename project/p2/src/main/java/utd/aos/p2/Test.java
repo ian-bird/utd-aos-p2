@@ -1,12 +1,15 @@
 package utd.aos.p2;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 import utd.aos.p2.mutex.Maekawa;
 import utd.aos.p2.mutex.Maekawa2;
+import utd.aos.p2.mutex.Mutex;
 import utd.aos.p2.mutex.MutexData;
 import utd.aos.p2.pusher.Pusher;
 import utd.aos.p2.pusher.SubscriberManager;
@@ -15,7 +18,99 @@ public class Test {
     public static void main(String[] args) throws Exception {
 
         Main.readConfigParams("./inputs/sample-input.txt");
-        concurrentMaekawaTest();
+        // concurrentMaekawaTest();
+
+        loggedMaekawaTest();
+    }
+
+    public static Consumer<Runnable> atomically(Mutex m, Logger l, int id) {
+        return (r) -> {
+            m.csEnter();
+            l.log_enter(id, Instant.now());
+            try {
+                r.run();
+            } finally {
+                l.log_exit(id, Instant.now());
+                m.csLeave();
+            }
+        };
+    }
+
+    public static void loggedMaekawaTest() {
+        // set up the channels and timers
+        List<Pusher<MutexData>> inputChannels = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            inputChannels.add(new SubscriberManager<>());
+        }
+
+        // a = {0,1}
+        var a = new Maekawa(0, inputChannels.get(0),
+                Arrays.asList(inputChannels.get(1)), Arrays.asList(1));
+
+        // b = {0, 1, 2}
+        var b = new Maekawa(1, inputChannels.get(1),
+                Arrays.asList(inputChannels.get(0)),
+                Arrays.asList(0));
+
+        var log = new Logger("");
+
+        var ar = atomically(a, log, 0);
+        var br = atomically(b, log, 1);
+
+        log.begin_logging();
+
+        CompletableFuture.runAsync(() -> {
+            while (true) {
+                ar.accept(() -> {
+                    try {
+                        Thread.sleep(71);
+                    } catch (Exception _e) {
+                    }
+                });
+
+                try {
+                    Thread.sleep(29);
+                } catch (Exception _e) {
+                }
+
+                br.accept(() -> {
+                    try {
+                        Thread.sleep(71);
+                    } catch (Exception _e) {
+                    }
+                });
+
+                try {
+                    Thread.sleep(29);
+                } catch (Exception _e) {
+                }
+            }
+        });
+
+        // CompletableFuture.runAsync(() -> {
+        // while (true) {
+        // try {
+        // Thread.sleep(17);
+        // } catch (Exception _e) {
+        // }
+
+        // cr.accept(() -> {
+        // try {
+        // Thread.sleep(41);
+        // } catch (Exception _e) {
+        // }
+
+        // c.csLeave();
+        // });
+        // }
+        // });
+
+        try {
+            Thread.sleep(1000);
+        } catch (Exception _e) {
+        }
+
+        log.end_logging();
     }
 
     public static void concurrentMaekawaTest() {
