@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 
 import utd.aos.p2.Config.ConfigParams;
 import utd.aos.p2.Config.NodeConfig;
@@ -24,7 +25,8 @@ public class Main {
 
 		// var params = readConfigParams(args[0]);
 		// var params = readConfigParams("./inputs/sample-input.txt");
-		var params = readConfigParams("./inputs/minimal-2nodes.txt");
+		// var params = readConfigParams("./inputs/minimal-2nodes.txt");
+		var params = readConfigParams("../../inputs/minimal-2nodes.txt");
 
 		List<Pusher<MutexData>> inputChannels = new ArrayList<>();
 		for (int i = 0; i < params.globalParams().numNodes(); i++) {
@@ -44,40 +46,31 @@ public class Main {
 		nodes.forEach((node) -> {
 			System.out.println(node);
 			node.enableLogging();
-	});
+		});
 
 		var logger = new Logger("");
 		logger.begin_logging();
 
+		var futures = new ArrayList<CompletableFuture<Void>>();
 		for (var node : nodes) {
-			CompletableFuture.runAsync(() -> {
+			futures.add(CompletableFuture.runAsync(() -> {
 				for (int i = 0; i < params.globalParams().numRequestsPerNode(); i++) {
-					try {
-						node.csEnter();
-						System.out.printf("%d entered.\n", node.id);
-						logger.log_enter(node.id, Instant.now());
-						Thread.sleep(params.globalParams().meanCsExecutionTime().toMillis());
-						logger.log_exit(node.id, Instant.now());
-						node.csLeave();
-						Thread.sleep(params.globalParams().meanInterRequestDelay().toMillis());
-					} catch (InterruptedException _ie) {
-
-					}
+					node.csEnter();
+					System.out.printf("%d entered.\n", node.id);
+					logger.log_enter(node.id, Instant.now());
+					sleepFor(params.globalParams().meanCsExecutionTime());
+					logger.log_exit(node.id, Instant.now());
+					node.csLeave();
+					sleepFor(params.globalParams().meanInterRequestDelay());
 				}
-			});
+			}));
 		}
 
-		try {
-			Thread.sleep(Duration.ofSeconds(5));
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
+		// Have main thread block until all are done
+		futures.forEach(CompletableFuture::join);
 		logger.end_logging();
 	}
 
-	/// Also prints out what's read!
 	public static ConfigParams readConfigParams(String path) {
 		Path configFile = Path.of(path);
 
@@ -86,5 +79,20 @@ public class Main {
 		}
 
 		return Config.parseConfigFile(configFile);
+	}
+
+	/**
+	 * @param expDistSampleTime Samples an exponential dist with mean of this value
+	 *                          and sleeps that long
+	 */
+	private static void sleepFor(Duration expDistSampleTime) {
+		long amount = (long) (ThreadLocalRandom.current().nextExponential() * expDistSampleTime.toMillis());
+
+		System.out.println("Sleeping for " + amount + "ms");
+
+		try {
+			Thread.sleep(amount);
+		} catch (InterruptedException e) {
+		}
 	}
 }
