@@ -25,11 +25,16 @@ public class Test {
             inputChannels.add(new SubscriberManager<>());
         }
 
+        // a = {0,1}
         var a = new Maekawa(0, inputChannels.get(0),
                 Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
+        
+        // b = {0, 1, 2}
         var b = new Maekawa(1, inputChannels.get(1),
-                Arrays.asList(inputChannels.get(0), inputChannels.get(2)), 
+                Arrays.asList(inputChannels.get(0), inputChannels.get(2)),
                 Arrays.asList(0, 2), new Preemption());
+
+        // c = {1 , 2}
         var c = new Maekawa(2, inputChannels.get(2),
                 Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
 
@@ -37,52 +42,68 @@ public class Test {
         b.enableLogging();
         c.enableLogging();
 
-        CompletableFuture.runAsync(()->{
-            a.csEnter();
-            System.out.println("a entered.");
-            try{
-                Thread.sleep(100);
-            }catch(Exception _e) {
-            }
-            System.out.println("a leaving...");
-            a.csLeave();
+        System.out.printf("0 = %s\n", a.toString());
 
-            try{
-                Thread.sleep(20);
-            }catch(Exception _e) {
-            }
+        CompletableFuture.runAsync(() -> {
+            while (true) {
+                a.csEnter();
+                System.out.println("0 entered.");
+                try {
+                    Thread.sleep(100);
+                } catch (Exception _e) {
+                }
+                System.out.println("0 leaving...");
+                a.csLeave();
 
-            b.csEnter();
-            System.out.println("b entered.");
-            try{
-                Thread.sleep(100);
-            }catch(Exception _e) {
+                try {
+                    Thread.sleep(20);
+                } catch (Exception _e) {
+                }
+
+                b.csEnter();
+                System.out.println("1 entered.");
+                try {
+                    Thread.sleep(100);
+                } catch (Exception _e) {
+                }
+                System.out.println("1 leaving...");
+                b.csLeave();
+
+                try {
+                    Thread.sleep(20);
+                } catch (Exception _e) {
+                }
             }
-            System.out.println("b leaving...");
-            b.csLeave();
         });
 
-        CompletableFuture.runAsync(()->{
-            try{
-                Thread.sleep(50);
-            }catch(Exception _e) {
-            }
+        CompletableFuture.runAsync(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(50);
+                } catch (Exception _e) {
+                }
 
-            System.out.println("c trying to enter...");
-            c.csEnter();
-            System.out.println("c entered.");
-            try{
-                Thread.sleep(100);
-            }catch(Exception _e) {
+                c.csEnter();
+                System.out.println("2 entered.");
+                try {
+                    Thread.sleep(100);
+                } catch (Exception _e) {
+                }
+                System.out.println("2 leaving...");
+                c.csLeave();
             }
-            System.out.println("c leaving...");
-            c.csLeave();
         });
 
-        try{
-                Thread.sleep(1000);
-            }catch(Exception _e) {
-            }        
+        try {
+            Thread.sleep(1000);
+        } catch (Exception _e) {
+        }
+
+        System.out.printf("0: %s\n", a.toString());
+        System.out.printf("1: %s\n", b.toString());
+        System.out.printf("2: %s\n", c.toString());
+
+        while(true);
     }
 
     private static void MaekawaTest() {
@@ -95,7 +116,7 @@ public class Test {
         var a = new Maekawa(0, inputChannels.get(0),
                 Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
         var b = new Maekawa(1, inputChannels.get(1),
-                Arrays.asList(inputChannels.get(0), inputChannels.get(2)), 
+                Arrays.asList(inputChannels.get(0), inputChannels.get(2)),
                 Arrays.asList(0, 2), new Preemption());
         var c = new Maekawa(2, inputChannels.get(2),
                 Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());

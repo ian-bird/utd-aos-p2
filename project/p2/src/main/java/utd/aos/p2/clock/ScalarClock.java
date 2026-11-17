@@ -14,6 +14,11 @@ public class ScalarClock implements Serializable, Clock<ScalarClock> {
     }
 
     @Override
+    public String toString() {
+        return "{\"counter\": " + counter + "}";
+    }
+
+    @Override
     public ScalarClock receive(ScalarClock c) {
         return new ScalarClock(c.counter > counter ? c.counter : counter);
     }

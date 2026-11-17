@@ -28,6 +28,10 @@ public class SubscriberManager<T> implements Pusher<T> {
             subscriber.accept(v);
     }
 
+    public String toString() {
+        return "{\"subscribers\": " + subscribers.toString() + "}";
+    }
+
     public synchronized void registerCallback(Consumer<T> cb) {
         subscribers.add(cb);
     }
