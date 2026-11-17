@@ -24,7 +24,7 @@ public class Main {
 
 		// var params = readConfigParams(args[0]);
 		// var params = readConfigParams("./inputs/sample-input.txt");
-		var params = readConfigParams("./inputs/minimal-2nodes.txt");
+		var params = readConfigParams("./inputs/sample-input.txt");
 
 		List<Pusher<MutexData>> inputChannels = new ArrayList<>();
 		for (int i = 0; i < params.globalParams().numNodes(); i++) {
@@ -35,9 +35,9 @@ public class Main {
 
 		for (NodeConfig nodeConfig : params.nodeConfigs()) {
 			nodes.add(new Maekawa(nodeConfig.nodeID(), inputChannels.get(nodeConfig.nodeID()),
-					nodeConfig.quorumIDs().stream().filter((p) -> p != nodeConfig.nodeID()).map(inputChannels::get)
+					nodeConfig.quorumIDs().stream().map(inputChannels::get)
 							.toList(),
-					nodeConfig.quorumIDs().stream().filter((p) -> p != nodeConfig.nodeID()).toList()));
+					nodeConfig.quorumIDs()));
 		}
 
 		System.out.println("nodes parsed and initialized:");
