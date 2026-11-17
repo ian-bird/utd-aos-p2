@@ -38,9 +38,9 @@ public class Test {
         var c = new Maekawa(2, inputChannels.get(2),
                 Arrays.asList(inputChannels.get(1)), Arrays.asList(1), new Preemption());
 
-        a.enableLogging();
-        b.enableLogging();
-        c.enableLogging();
+        // a.enableLogging();
+        // b.enableLogging();
+        // c.enableLogging();
 
         System.out.printf("0 = %s\n", a.toString());
 
@@ -49,28 +49,28 @@ public class Test {
                 a.csEnter();
                 System.out.println("0 entered.");
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(71);
                 } catch (Exception _e) {
                 }
-                System.out.println("0 leaving...");
+                System.out.println("0 leaving...\n");
                 a.csLeave();
 
                 try {
-                    Thread.sleep(20);
+                    Thread.sleep(29);
                 } catch (Exception _e) {
                 }
 
                 b.csEnter();
                 System.out.println("1 entered.");
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(71);
                 } catch (Exception _e) {
                 }
-                System.out.println("1 leaving...");
+                System.out.println("1 leaving...\n");
                 b.csLeave();
 
                 try {
-                    Thread.sleep(20);
+                    Thread.sleep(29);
                 } catch (Exception _e) {
                 }
             }
@@ -79,17 +79,17 @@ public class Test {
         CompletableFuture.runAsync(() -> {
             while (true) {
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep(17);
                 } catch (Exception _e) {
                 }
 
                 c.csEnter();
                 System.out.println("2 entered.");
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(41);
                 } catch (Exception _e) {
                 }
-                System.out.println("2 leaving...");
+                System.out.println("2 leaving...\n");
                 c.csLeave();
             }
         });

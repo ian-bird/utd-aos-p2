@@ -38,4 +38,8 @@ public class BufferedChan<T> implements Chan<T>, Pusher<T> {
     public void registerCallback(Consumer<T> cb) {
         subs.registerCallback(cb);
     }
+
+    public synchronized boolean isEmpty() {
+        return this.queue.isEmpty();
+    }
 }

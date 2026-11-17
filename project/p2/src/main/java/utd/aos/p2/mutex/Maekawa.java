@@ -40,7 +40,7 @@ public class Maekawa implements Mutex {
                 ", \"c\": " + c.toString() +
                 ", \"waitingFor\": " + waitingFor.toString() +
                 ", \"outstandingLoans\": " + outstandingLoans.toString() +
-                ", \"outputsById\": " + outputsById.toString() + 
+                ", \"outputsById\": " + outputsById.toString() +
                 ", \"granted\": " + granted.toString() +
                 ", \"id\": " + id +
                 ", \"failed\": " + failed +
@@ -74,102 +74,108 @@ public class Maekawa implements Mutex {
         incoming.registerCallback(workQueue::push);
 
         this.workQueue.registerCallback((in) -> {
-            this.workQueue.pull();
+            try {
+                boolean crit = false;
+                do {
+                    synchronized (this) {
+                        crit = this.inCritical;
+                    }
+                } while (crit);
 
-            boolean crit = false;
-            do {
-                synchronized (this) {
-                    crit = this.inCritical;
-                }
-            } while (crit);
+                debugLog("%d received %s\n", myId, in.toString());
 
-            debugLog("%d received %s\n", myId, in.toString());
+                switch (in) {
+                    // upon receiving request:
+                    // we do not have an outstanding grant:
+                    // -> then send a grant to the sender of the request.
+                    // we do have an outstanding grant and it is higher priority:
+                    // -> send a failed to the sender of the request, and queue the request.
+                    // we do have an outstanding grant and it is lower priority:
+                    // -> send an inquire message to the process we've granted to.
+                    case Request r:
 
-            switch (in) {
-                // upon receiving request:
-                // we do not have an outstanding grant:
-                // -> then send a grant to the sender of the request.
-                // we do have an outstanding grant and it is higher priority:
-                // -> send a failed to the sender of the request, and queue the request.
-                // we do have an outstanding grant and it is lower priority:
-                // -> send an inquire message to the process we've granted to.
-                case Request r:
+                        granted.ifPresentOrElse((grantedTo) -> {
+                            if (grantedTo.timeStamp < r.timeStamp) {
+                                debugLog("%d rejecting request %s\n", myId, r.toString());
+                                q.add(r);
+                                outputsById.get(r.senderId).push(new Failed(myId, r.timeStamp));
+                            } else {
+                                debugLog("%d inquiring about %s to %d\n", myId, r.toString(), grantedTo.senderId);
+                                outputsById.get(grantedTo.senderId).push(new Inquire(myId, r));
+                            }
+                        }, () -> {
+                            debugLog("%d granting %s\n", myId, r);
+                            grant(r);
+                        });
+                        break;
 
-                    granted.ifPresentOrElse((grantedTo) -> {
-                        if (grantedTo.timeStamp < r.timeStamp) {
-                            debugLog("%d rejecting request %s\n", myId, r.toString());
-                            q.add(r);
-                            outputsById.get(r.senderId).push(new Failed(myId, r.timeStamp));
+                    // upon receiving an inqury:
+                    // if we have failed or have an outstanding grant,
+                    // then we will yield to the incoming inquiry.
+                    //
+                    // otherwise we will reject it.
+                    case Inquire i:
+                        if (failed || !outstandingLoans.isEmpty()) {
+                            debugLog("inquiry successful. Yielding\n");
+                            outstandingLoans.add(i.senderId);
+                            outputsById.get(i.senderId).push(new Yield(i.about.senderId, i.about.timeStamp));
                         } else {
-                            debugLog("%d inquiring about %s to %d\n", myId, r.toString(), grantedTo.senderId);
-                            outputsById.get(grantedTo.senderId).push(new Inquire(myId, r));
+                            debugLog("inquiry failed. Not yielding\n");
+                            outputsById.get(i.senderId).push(new Failed(i.about.senderId, i.about.timeStamp));
                         }
-                    }, () -> {
-                        debugLog("%d granting %s\n", myId, r);
-                        grant(r);
-                    });
-                    break;
 
-                // upon receiving an inqury:
-                // if we have failed or have an outstanding grant,
-                // then we will yield to the incoming inquiry.
-                //
-                // otherwise we will reject it.
-                case Inquire i:
-                    if (failed || !outstandingLoans.isEmpty()) {
-                        debugLog("inquiry successful. Yielding\n");
-                        outstandingLoans.add(i.senderId);
-                        outputsById.get(i.senderId).push(new Yield(i.about.senderId, i.about.timeStamp));
-                    } else {
-                        debugLog("inquiry failed. Not yielding\n");
-                        outputsById.get(i.senderId).push(new Failed(i.about.senderId, i.about.timeStamp));
-                    }
+                        break;
+                    // upon receiving yield: send a grant to the process at the front of the queue.
+                    // place the incoming request into the queue.
+                    case Yield y:
+                        if (!q.isEmpty()) {
+                            debugLog("received yield, so granting to %d\n", q.peek().senderId);
+                            grant(q.peek());
+                        }
+                        q.add(new Request(y.id, y.ts));
+                        break;
+                    // upon receiving release: remove that item from the queue
+                    // and send a grant to the process at the front of the queue.
+                    case Release r:
+                        if (!q.isEmpty()) {
+                            debugLog("received release, removing %d from %s\n", r.id, q.toString());
+                        } else {
+                            debugLog("%d queue is empty; this should never happen\n", this.id);
+                        }
+                        q.removeIf((qr) -> qr.senderId == r.id);
+                        if (!q.isEmpty()) {
+                            debugLog("received release, so granting to %d\n", q.peek().senderId);
+                            grant(q.peek());
+                        } else {
+                            synchronized (this) {
+                                granted = Optional.empty();
+                            }
+                        }
+                        break;
 
-                    break;
-                // upon receiving yield: send a grant to the process at the front of the queue.
-                // place the incoming request into the queue.
-                case Yield y:
-                    if (!q.isEmpty()) {
-                        debugLog("received yield, so granting to %d\n", q.peek().senderId);
-                        grant(q.peek());
-                    }
-                    q.add(new Request(y.id, y.ts));
-                    break;
-                // upon receiving release: remove that item from the queue
-                // and send a grant to the process at the front of the queue.
-                case Release r:
-                    if (!q.isEmpty()) {
-                        debugLog("received release, removing %d from %s\n", r.id, q.toString());
-                    } else {
-                        debugLog("%d queue is empty; this should never happen\n", this.id);
-                    }
-                    q.removeIf((qr) -> qr.senderId == r.id);
-                    if (!q.isEmpty()) {
-                        debugLog("received release, so granting to %d\n", q.peek().senderId);
-                        grant(q.peek());
-                    }
-                    break;
+                    case Grant g:
+                        outstandingLoans.remove(g.id);
+                        waitingFor.remove(g.id);
+                        if (waitingFor.isEmpty()) {
+                            debugLog("%d received last grant\n", this.id);
+                            debugLog("registered parties: %s\n", p.getRegisteredParties());
+                            p.arrive();
+                            debugLog("%d arrived at %s!\n", this.id, p.getArrivedParties());
+                        }
 
-                case Grant g:
-                    outstandingLoans.remove(g.id);
-                    waitingFor.remove(g.id);
-                    if (waitingFor.isEmpty()) {
-                        debugLog("%d received last grant\n", this.id);
-                        debugLog("registered parties: %s\n", p.getRegisteredParties());
-                        p.arrive();
-                        debugLog("%d arrived at %s!\n", this.id, p.getArrivedParties());
-                    }
+                        break;
 
-                    break;
+                    case Failed f:
+                        q.add(new Request(f.id, c.counter));
+                        this.c = c.send();
+                        this.failed = true;
+                        break;
 
-                case Failed f:
-                    q.add(new Request(f.id, c.counter));
-                    this.c = c.send();
-                    this.failed = true;
-                    break;
-
-                case SendReleaseTo srt:
-                    outputsById.get(srt.where).push(new Release(this.id));
+                    case SendReleaseTo srt:
+                        outputsById.get(srt.where).push(new Release(this.id));
+                }
+            } finally {
+                this.workQueue.pull();
             }
         });
     }
@@ -186,7 +192,7 @@ public class Maekawa implements Mutex {
             this.outstandingLoans = new HashSet<>();
 
             // only register if the arrive in the lambda will immediately unblock
-            if(p.getRegisteredParties() <= p.getArrivedParties() + 1)
+            if (p.getRegisteredParties() <= p.getArrivedParties() + 1)
                 p.register();
         }
 
@@ -222,14 +228,10 @@ public class Maekawa implements Mutex {
             inCritical = false;
         }
 
-        try {
-            Thread.sleep(5);
-        }catch(Exception _e) {            
-        }
-
         // and tell everyone in the quorum that we're done.
-        outputsById.keySet().stream().forEach((id) -> workQueue.push(new SendReleaseTo(id)));
-        // outputsById.values().stream().forEach((o) -> o.push(new Release(id)));
+        outputsById.keySet().stream().forEach((id) -> {
+                        workQueue.push(new SendReleaseTo(id));
+        });
     }
 
     public void enableLogging() {
