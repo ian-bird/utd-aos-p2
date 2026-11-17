@@ -33,6 +33,8 @@ public class Maekawa implements Mutex {
     private boolean debugMode;
     private boolean inCritical;
 
+    private Object sentinel;
+
     public String toString() {
         return "{\"q\": " + q.toString() +
                 ", \"c\": " + c.toString() +
@@ -153,8 +155,9 @@ public class Maekawa implements Mutex {
                     waitingFor.remove(g.id);
                     if (waitingFor.isEmpty()) {
                         debugLog("%d received last grant\n", this.id);
+                        debugLog("registered parties: %s\n", p.getRegisteredParties());
                         p.arrive();
-                        debugLog("%d arrived!\n", this.id);
+                        debugLog("%d arrived at %s!\n", this.id, p.getArrivedParties());
                     }
 
                     break;
@@ -182,7 +185,9 @@ public class Maekawa implements Mutex {
             this.waitingFor = new HashMap<>(outputsById).keySet();
             this.outstandingLoans = new HashSet<>();
 
-            p.register();
+            // only register if the arrive in the lambda will immediately unblock
+            if(p.getRegisteredParties() <= p.getArrivedParties() + 1)
+                p.register();
         }
 
         int clockVal = c.counter;
@@ -215,6 +220,11 @@ public class Maekawa implements Mutex {
         synchronized (this) {
             debugLog("%d released critical flag.\n", this.id);
             inCritical = false;
+        }
+
+        try {
+            Thread.sleep(5);
+        }catch(Exception _e) {            
         }
 
         // and tell everyone in the quorum that we're done.
