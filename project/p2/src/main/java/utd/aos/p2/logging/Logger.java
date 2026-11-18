@@ -1,4 +1,4 @@
-package utd.aos.p2;
+package utd.aos.p2.logging;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,7 +23,7 @@ import java.util.List;
  * {@code logger_time} is when the logger node received the event,
  * while {@code node_time} is when the node sent the event.
  */
-class Logger {
+public class Logger {
     Path logFilePath;
     private List<String> content;
 
@@ -38,23 +38,23 @@ class Logger {
         this.content = new ArrayList<>();
     }
 
-    void begin_logging() {
+    public void begin_logging() {
         content.add("node_id, event, logger_time, node_time");
     }
 
-    void log_enter(int nodeId, Instant ts) {
+    public void log_enter(int nodeId, Instant ts) {
         // content.add("Node " + nodeId + " entered critical section at its time: " + ts
         // + "; local Logger node time is " + Instant.now());
         content.add(nodeId + ", enter, " + Instant.now() + ", " + ts);
     }
 
-    void log_exit(int nodeId, Instant ts) {
+    public void log_exit(int nodeId, Instant ts) {
         // content.add("Node " + nodeId + " exited critical section at its time: " + ts
         // + "; local Logger node time is " + Instant.now());
         content.add(nodeId + ", exit, " + Instant.now() + ", " + ts);
     }
 
-    void end_logging() {
+    public void end_logging() {
         try {
             Files.write(logFilePath, content);
         } catch (IOException e) {
