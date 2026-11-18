@@ -1,4 +1,6 @@
 INPUT_FILE := ../../inputs/sample-input.txt
+# RUN_CLASS = utd.aos.p2.Test
+RUN_CLASS = utd.aos.p2.Main
 
 SRC_DIR := src/main/java
 BUILD_DIR := target
@@ -28,7 +30,7 @@ $(BUILD_DIR)/%.class: $(SRC_DIR)/%.java
 	$(JAVAC) -cp $(BUILD_DIR) -sourcepath $(SRC_DIR) -d $(BUILD_DIR) $<
 
 run: build
-	$(JAVA) -cp $(BUILD_DIR) utd.aos.p2.Main $(INPUT_FILE)
+	$(JAVA) -cp $(BUILD_DIR) $(RUN_CLASS) $(INPUT_FILE)
 
 clean:
 	rm -rf $(BUILD_DIR)

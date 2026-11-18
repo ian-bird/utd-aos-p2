@@ -3,6 +3,7 @@
 Team: Joshua Purushothaman (jtp200012) and Ian Bird (irb170030)
 
 ```bash
+cd project/p2
 make run
 
 # todo: do they need cleanup or startup?

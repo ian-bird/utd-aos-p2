@@ -7,10 +7,17 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import utd.aos.p2.Config.GlobalParams;
+
+
+
 /**
- * Outputs a CSV to {@code logger_outputs/<timestamp>_<logFileTitleNotes>_log.csv}
+ * Outputs a CSV to
+ * {@code logger_outputs/<timestamp>_<logFileTitleNotes>_log.csv}
  *
- * <p>Example:
+ * <p>
+ * Example:
+ * 
  * <pre>
  * node_id,event,logger_time,node_time
  * 0,enter,2026-11-16T20:00:00Z,2026-11-16T19:59:59Z
@@ -19,7 +26,8 @@ import java.util.List;
  * 1,exit,2026-11-16T20:00:03Z,2026-11-16T20:00:02Z
  * </pre>
  *
- * <p>Note:
+ * <p>
+ * Note:
  * {@code logger_time} is when the logger node received the event,
  * while {@code node_time} is when the node sent the event.
  */
@@ -28,13 +36,31 @@ public class Logger {
     private List<String> content;
 
     /**
-     * The logfile path will be
-     * `logger_outputs/<timestamp>_<logFileTitleNotes>_log.csv`.
+     * The logfile path will be something like:
+     * {@code logger_outputs/2026-11-17T03:55:07.343700Z_n=9_d=20_c=10_Maekawa1_sample-input_log.csv}.
      * 
-     * @param logFileTitleNotes Optional, set to "" if you don't want anything.
+     * @param gp            Pass in {@code params.globalParams()}; Logger will get
+     *                      n, d, and c from it
+     * @param isMaekawa2    True if you're using Maekawa2; false for Maekawa1.
+     * @param inputFileName Name of the input config file (ex.: {@code
+     *                      sample-input.txt}). Used for grouping logs in the
+     *                      analyzer/graphing script.
      */
-    public Logger(String logFileTitleNotes) {
-        this.logFilePath = Path.of("logger_outputs/" + Instant.now() + "_" + logFileTitleNotes + "_log.csv");
+    public Logger(GlobalParams gp, boolean isMaekawa2, String inputFileName) {
+        // The input file name might be something like "inputs/sample-input.txt"...
+        // Clean it up to something like "sample-input"
+        String cleanedInputFileName = Path.of(inputFileName).getFileName().toString();
+        cleanedInputFileName = cleanedInputFileName.substring(0, cleanedInputFileName.lastIndexOf('.'));
+
+        this.logFilePath = Path.of("logger_outputs/" +
+                Instant.now() +
+                "_n=" + gp.numNodes() +
+                "_d=" + gp.meanInterRequestDelay() +
+                "_c=" + gp.meanCsExecutionTime() +
+                "_" + (isMaekawa2 ? "Maekawa2" : "Maekawa1") +
+                "_" + cleanedInputFileName +
+                "_log.csv");
+
         this.content = new ArrayList<>();
     }
 

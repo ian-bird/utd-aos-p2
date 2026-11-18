@@ -15,6 +15,8 @@ import java.util.function.Consumer;
 
 import utd.aos.p2.Config.ConfigParams;
 import utd.aos.p2.logging.*;
+import utd.aos.p2.Config.GlobalParams;
+import utd.aos.p2.Config.NodeConfig;
 import utd.aos.p2.mutex.Maekawa;
 import utd.aos.p2.mutex.MutexData;
 import utd.aos.p2.pusher.Listener;
@@ -40,7 +42,7 @@ public class Main {
 			if (params.nodeConfigs().stream().noneMatch((r) -> r.hostName().equals("dc" + iCopy))) {
 				if (myName.equals("dc" + i)) {
 				    System.out.println("dc" + i + " is the logger.");
-					startLogger(params, myName);
+					startLogger(params, myName, args[0]);
 				} else {
 					startNode(params, myName, "dc" + i);
 				}
@@ -62,10 +64,13 @@ public class Main {
 		}
 	}
 
-	public static void startLogger(ConfigParams params, String myName) throws IOException {
+	public static void startLogger(ConfigParams params, String myName, String inputFilePath) throws IOException {
 		var incoming = new Listener<>(9000, (s) -> Serialization.<Log>deserialize(s).get());
 
-		var logger = new Logger("");
+		var logger = new Logger(
+				params.globalParams(),
+				false, // TODO: this should be whether it's maekawa2 or not 
+				inputFilePath);
 
 		logger.begin_logging();
 
