@@ -34,12 +34,12 @@ public class Main {
 
 		// extract name from the system host name
 		var myName = InetAddress.getLocalHost().getHostName().split("\\.")[0].split("-")[1];
-		System.out.println(myName);
 
 		for (int i = 10; i < 49; i++) {
 			var iCopy = i;
 			if (params.nodeConfigs().stream().noneMatch((r) -> r.hostName().equals("dc" + iCopy))) {
 				if (myName.equals("dc" + i)) {
+				    System.out.println("dc" + i + " is the logger.");
 					startLogger(params, myName);
 				} else {
 					startNode(params, myName, "dc" + i);
@@ -69,7 +69,7 @@ public class Main {
 
 		logger.begin_logging();
 
-		var n = new SettableNum(0);
+		var n = new SettableNum(1);
 
 		incoming.registerCallback((log) -> {
 			int val;
@@ -77,9 +77,14 @@ public class Main {
 				val = n.n;
 			}
 
-			if (val == params.globalParams().numNodes() * params.globalParams().numRequestsPerNode())
+			int until = params.globalParams().numNodes() * params.globalParams().numRequestsPerNode();
+
+			System.out.println("received message " + val + " out of " + until);
+			
+			if (val == until) {
+			    logger.end_logging();
 				System.exit(0);
-			else {
+			} else {
 				synchronized (n) {
 					n.setNum(val + 1);
 				}
@@ -94,6 +99,8 @@ public class Main {
 					logger.log_exit(log.nodeId(), log.ts());
 					break;
 			}
+
+			System.out.println("got a log from " + log.nodeId());
 		});
 
 
@@ -107,24 +114,31 @@ public class Main {
 			throws UnknownHostException, Exception {
 
 		// get the associated config
-		var myConfig = params.nodeConfigs().stream().filter((row) -> row.hostName().equals(myName)).findFirst().get();
+		var myConfig = params.nodeConfigs().stream().filter((row) -> row.hostName().equals(myName)).findFirst().orElseGet(()->{
+			System.exit(0);
+			return params.nodeConfigs().get(0);
+		});
 
+		
 		// open the port to listen to
 		var incoming = new Listener<>(myConfig.listenPort(), (s) -> Serialization.<MutexData>deserialize(s).get());
+
 
 		// set up the ports to send to
 		List<Pusher<MutexData>> outgoing = new ArrayList<>();
 
 		for (var id : myConfig.quorumIDs()) {
 			var p = params.nodeConfigs().stream().filter((row) -> row.nodeID() == id).findFirst().get();
-			outgoing.add(Attempt.withRetries(10, () -> new Sender<MutexData>(
-					InetAddress.getByName(p.hostName().concat(".utdallas.edu")),
+			outgoing.add(Attempt.withRetries(50, () -> new Sender<MutexData>(
+					InetAddress.getByName("csa-" + p.hostName() + ".utdallas.edu"),
 					p.listenPort(),
 					Serialization::serialize)));
 		}
 
-		var logger = Attempt.withRetries(10, () -> new Sender<Log>(
-				InetAddress.getByName(loggerHost + ".utdallas.edu"),
+		System.out.println(myName + " set up quorum. Now logger...");
+
+		var logger = Attempt.withRetries(30, () -> new Sender<Log>(
+				InetAddress.getByName("csa-" + loggerHost + ".utdallas.edu"),
 				9000,
 				Serialization::serialize));
 
@@ -139,6 +153,15 @@ public class Main {
 			}
 		};
 
+		System.out.println(myName + " is done setting up.");
+
+		// wait for a sec to synchronize all the threads.
+		// we can't start sending stuff before everyone else is up.
+		try {
+		    Thread.sleep(2000);
+		} catch (InterruptedException _ie) {
+		}
+
 		for (int i = 0; i < params.globalParams().numRequestsPerNode(); i++) {
 			atomically.accept(() -> {
 				// log entry
@@ -152,6 +175,8 @@ public class Main {
 
 			sleepFor(params.globalParams().meanInterRequestDelay());
 		}
+
+		System.out.println(myName + " has finished!");
 	}
 
 	public static ConfigParams readConfigParams(String path) {

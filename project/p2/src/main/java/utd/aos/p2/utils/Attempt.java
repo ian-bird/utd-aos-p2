@@ -9,8 +9,10 @@ public class Attempt {
             try {
                 return toTry.call();
             } catch (Exception e) {
-                if(retries++ > limit)
+                if(retries++ > limit) {
+		    System.err.println("out of retries.");
                     throw e;
+		}
                 
                 try {
                     Thread.sleep(100);

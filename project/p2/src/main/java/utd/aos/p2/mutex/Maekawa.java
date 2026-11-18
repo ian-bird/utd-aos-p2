@@ -27,7 +27,7 @@ public class Maekawa implements Mutex {
 
     private Set<Integer> waitingFor;
     private Set<Integer> outstandingLoans;
-    private Set<Integer> inquiries;
+    private HashSet<Integer> inquiries;
     private Phaser p;
     private Map<Integer, Pusher<MutexData>> outputsById;
     private Optional<Request> granted;
@@ -115,7 +115,9 @@ public class Maekawa implements Mutex {
                     // Defer inquiries until we fail, and then yield.
                     case Inquire i:
                         if (requesting && !inCritical && !waitingFor.contains(i.senderId)) {
-                            inquiries.add(i.senderId);
+                            synchronized (inquiries) {
+                                inquiries.add(i.senderId);
+                            }
                             if (failed || !outstandingLoans.isEmpty()) {
                                 yieldGrant(i.senderId);
                             }
@@ -131,7 +133,8 @@ public class Maekawa implements Mutex {
                         }
                         break;
 
-                    // for release, remove that item from the queue and send a grant to the process at the front
+                    // for release, remove that item from the queue and send a grant to the process
+                    // at the front
                     case Release r:
                         if (!q.isEmpty()) {
                             debugLog("received release, removing %d from %s\n", r.id, q.toString());
@@ -149,7 +152,8 @@ public class Maekawa implements Mutex {
                         }
                         break;
 
-                    // when we get a grant, remove the loan for that, and if its the last thing we're waiting for then
+                    // when we get a grant, remove the loan for that, and if its the last thing
+                    // we're waiting for then
                     // we can enter the critical section
                     case Grant g:
                         if (!requesting || !waitingFor.remove(g.id)) {
@@ -166,12 +170,19 @@ public class Maekawa implements Mutex {
 
                         break;
 
-                    // when we get a failure, if we're not in the critical section and the failure is for our most recent request,
-                    // then fail and yield to everyone 
+                    // when we get a failure, if we're not in the critical section and the failure
+                    // is for our most recent request,
+                    // then fail and yield to everyone
                     case Failed f:
                         if (requesting && !inCritical && f.ts == requestTimestamp) {
                             this.failed = true;
-                            inquiries.stream().forEach(this::yieldGrant);
+
+                            HashSet<Integer> inqCopy;
+                            synchronized (inquiries) {
+                                inqCopy = (HashSet<Integer>)inquiries.clone();
+                            }
+                            
+                            inqCopy.stream().forEach(this::yieldGrant);
                         }
                         break;
 
@@ -192,7 +203,10 @@ public class Maekawa implements Mutex {
             this.requesting = true;
             this.waitingFor = new HashSet<>(outputsById.keySet());
             this.outstandingLoans = new HashSet<>();
-            this.inquiries.clear();
+
+            synchronized (inquiries) {
+                this.inquiries.clear();
+            }
 
             // only register if the arrive in the lambda will immediately unblock
             if (p.getRegisteredParties() <= p.getArrivedParties() + 1)
@@ -239,7 +253,9 @@ public class Maekawa implements Mutex {
     // yield to another process. This does all the bookkeeping needed.
     private void yieldGrant(int otherId) {
         debugLog("%d yielding from %d\n", id, otherId);
-        inquiries.remove(otherId);
+        synchronized (inquiries) {
+            inquiries.remove(otherId);
+        }
         outstandingLoans.add(otherId);
         waitingFor.add(otherId);
         outputsById.get(otherId).push(new Yield(id, requestTimestamp));
