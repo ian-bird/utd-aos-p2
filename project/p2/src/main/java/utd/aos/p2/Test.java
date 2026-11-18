@@ -1,5 +1,6 @@
 package utd.aos.p2;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import utd.aos.p2.Config.GlobalParams;
 import utd.aos.p2.mutex.Maekawa;
 import utd.aos.p2.mutex.Maekawa2;
 import utd.aos.p2.mutex.Mutex;
@@ -52,7 +54,9 @@ public class Test {
                 Arrays.asList(inputChannels.get(0)),
                 Arrays.asList(0));
 
-        var log = new Logger("");
+        var log = new Logger( // Setting the GlobalParams to nonsense values here is okay for testing:
+                new GlobalParams(3, Duration.ofMillis(67), Duration.ofMillis(420), 69),
+                false);
 
         var ar = atomically(a, log, 0);
         var br = atomically(b, log, 1);

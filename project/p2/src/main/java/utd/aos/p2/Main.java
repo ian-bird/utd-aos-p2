@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 import utd.aos.p2.Config.ConfigParams;
+import utd.aos.p2.Config.GlobalParams;
 import utd.aos.p2.Config.NodeConfig;
 import utd.aos.p2.mutex.Maekawa;
 import utd.aos.p2.mutex.MutexData;
@@ -47,7 +48,10 @@ public class Main {
 			node.enableLogging();
 		});
 
-		var logger = new Logger("");
+		var logger = new Logger(
+				params.globalParams(),
+				nodes.get(0).getClass().toString().contains("Maekawa2"));
+
 		logger.begin_logging();
 
 		var futures = new ArrayList<CompletableFuture<Void>>();
