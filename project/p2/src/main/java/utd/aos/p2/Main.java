@@ -79,19 +79,12 @@ public class Main {
 				val = n.n;
 			}
 
-			int until = params.globalParams().numNodes() * params.globalParams().numRequestsPerNode();
+			int until = params.globalParams().numNodes() * (params.globalParams().numRequestsPerNode() + 1);
 
 			System.out.println("received message " + val + " out of " + until);
 
 			if (val == until) {
-				try {
-					Thread.sleep(6_000);
-				} catch (InterruptedException _ie){					
-				}
-
 				logger.end_logging();
-				System.out.println("logged to file.");
-				System.exit(0);
 			} else {
 				synchronized (n) {
 					n.setNum(val + 1);

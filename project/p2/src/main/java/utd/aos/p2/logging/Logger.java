@@ -87,6 +87,8 @@ public class Logger {
     public void end_logging() {
         try {
             Files.write(logFilePath, content);
+            System.out.println("logged to file.");
+            System.exit(0);
         } catch (IOException e) {
             e.printStackTrace();
         }
