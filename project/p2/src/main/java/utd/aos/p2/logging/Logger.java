@@ -69,15 +69,19 @@ public class Logger {
     }
 
     public void log_enter(int nodeId, Instant ts) {
-        // content.add("Node " + nodeId + " entered critical section at its time: " + ts
-        // + "; local Logger node time is " + Instant.now());
         content.add(nodeId + ", enter, " + Instant.now() + ", " + ts);
     }
 
     public void log_exit(int nodeId, Instant ts) {
-        // content.add("Node " + nodeId + " exited critical section at its time: " + ts
-        // + "; local Logger node time is " + Instant.now());
         content.add(nodeId + ", exit, " + Instant.now() + ", " + ts);
+    }
+
+    public void log_request(int nodeId, Instant ts) {
+        content.add(nodeId + ", request, " + Instant.now() + ", " + ts);
+    }
+
+    public void log_message_count(int nodeId, int messageCount) {
+        content.add(nodeId + ", messageCount, " + Instant.now() + ", " + messageCount);
     }
 
     public void end_logging() {

@@ -15,15 +15,19 @@ public class Sender<T> implements Pusher<T> {
     private PrintWriter out;
     private Function<T, String> toString;
 
+    public int messagesSent;
+
     // toString allows for custom serialization protocols for any object specified by the user.
     public Sender(InetAddress ip, int port, Function<T, String> toString) throws IOException {
         this.subs = new SubscriberManager<>();
         this.clientSocket = new Socket(ip, port);
         this.out = new PrintWriter(clientSocket.getOutputStream(), true);
         this.toString = toString;
+        this.messagesSent = 0;
     }
 
     public void push(T v) {
+        messagesSent++;
         out.println(toString.apply(v));
         subs.push(v);
     }

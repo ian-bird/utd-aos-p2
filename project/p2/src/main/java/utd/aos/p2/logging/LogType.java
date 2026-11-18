@@ -1,5 +1,5 @@
 package utd.aos.p2.logging;
 
 public enum LogType {
-    Entry, Exit
+    Entry, Exit, Request, messageCount
 }

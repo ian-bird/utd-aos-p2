@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import utd.aos.p2.Config.GlobalParams;
+import utd.aos.p2.logging.Logger;
 import utd.aos.p2.mutex.Maekawa;
 import utd.aos.p2.mutex.Maekawa2;
 import utd.aos.p2.mutex.Mutex;

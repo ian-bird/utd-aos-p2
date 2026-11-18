@@ -65,7 +65,7 @@ public class Config {
     // The second token is the mean value for inter-request delay (in milliseconds).
     // The third token is the mean value for cs-execution time (in milliseconds).
     // The fourth token is the number of requests each node should generate.
-    record GlobalParams(int numNodes, Duration meanInterRequestDelay, Duration meanCsExecutionTime,
+    public record GlobalParams(int numNodes, Duration meanInterRequestDelay, Duration meanCsExecutionTime,
             int numRequestsPerNode) {
         public static GlobalParams parse(String line) throws NumberFormatException {
             String[] parts = line.split("\\s+");
