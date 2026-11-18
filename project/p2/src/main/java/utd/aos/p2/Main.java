@@ -88,8 +88,9 @@ public class Main {
 					Thread.sleep(6_000);
 				} catch (InterruptedException _ie){					
 				}
-				
+
 				logger.end_logging();
+				System.out.println("logged to file.");
 				System.exit(0);
 			} else {
 				synchronized (n) {
@@ -110,8 +111,9 @@ public class Main {
 					logger.log_request(log.nodeId(), log.ts());
 					break;
 
-				case messageCount:
+				case MessageCount:
 					logger.log_message_count(log.nodeId(), log.messageCount());
+					break;
 			}
 
 			System.out.println("got a log from " + log.nodeId());
@@ -195,7 +197,7 @@ public class Main {
 		} catch (InterruptedException _ie) {
 		}
 
-		logger.push(new Log(LogType.messageCount, myConfig.nodeID(),
+		logger.push(new Log(LogType.MessageCount, myConfig.nodeID(),
 				outgoing.stream().map((o) -> ((Sender<MutexData>) o).messagesSent).reduce(0, (a, b) -> a + b),
 				Instant.now()));
 
