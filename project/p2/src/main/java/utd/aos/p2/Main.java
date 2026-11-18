@@ -24,9 +24,10 @@ public class Main {
 		// path]");
 		// }
 
+		String inputFilePath = "../../inputs/minimal-2nodes.txt";
 		// var params = readConfigParams(args[0]);
 		// var params = readConfigParams("./inputs/sample-input.txt");
-		var params = readConfigParams("./inputs/sample-input.txt");
+		var params = readConfigParams(inputFilePath);
 
 		List<Pusher<MutexData>> inputChannels = new ArrayList<>();
 		for (int i = 0; i < params.globalParams().numNodes(); i++) {
@@ -50,7 +51,8 @@ public class Main {
 
 		var logger = new Logger(
 				params.globalParams(),
-				nodes.get(0).getClass().toString().contains("Maekawa2"));
+				nodes.get(0).getClass().toString().contains("Maekawa2"),
+				inputFilePath);
 
 		logger.begin_logging();
 

@@ -56,7 +56,8 @@ public class Test {
 
         var log = new Logger( // Setting the GlobalParams to nonsense values here is okay for testing:
                 new GlobalParams(3, Duration.ofMillis(67), Duration.ofMillis(420), 69),
-                false);
+                false,
+                    "foobar.txt");
 
         var ar = atomically(a, log, 0);
         var br = atomically(b, log, 1);

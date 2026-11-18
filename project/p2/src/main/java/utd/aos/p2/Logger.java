@@ -35,18 +35,28 @@ class Logger {
 
     /**
      * The logfile path will be something like:
-     * `logger_outputs/2026-11-17T03:55:07.343700Z_n=9_d=20_c=10_Maekawa1_log.csv`.
+     * {@code logger_outputs/2026-11-17T03:55:07.343700Z_n=9_d=20_c=10_Maekawa1_sample-input_log.csv}.
      * 
-     * @param gp Pass in {@code params.globalParams()}; Logger will get n, d, and c from it
-     * @param isMaekawa2 True if you're using Maekawa2, else false for Maekawa1.
+     * @param gp            Pass in {@code params.globalParams()}; Logger will get
+     *                      n, d, and c from it
+     * @param isMaekawa2    True if you're using Maekawa2; false for Maekawa1.
+     * @param inputFileName Name of the input config file (ex.: {@code
+     *                      sample-input.txt}). Used for grouping logs in the
+     *                      analyzer/graphing script.
      */
-    public Logger(GlobalParams gp, boolean isMaekawa2) {
+    public Logger(GlobalParams gp, boolean isMaekawa2, String inputFileName) {
+        // The input file name might be something like "inputs/sample-input.txt"...
+        // Clean it up to something like "sample-input"
+        String cleanedInputFileName = Path.of(inputFileName).getFileName().toString();
+        cleanedInputFileName = cleanedInputFileName.substring(0, cleanedInputFileName.lastIndexOf('.'));
+
         this.logFilePath = Path.of("logger_outputs/" +
-                Instant.now()
-                + "_n=" + gp.numNodes()
-                + "_d=" + gp.meanInterRequestDelay()
-                + "_c=" + gp.meanCsExecutionTime()
-                + "_" + (isMaekawa2 ? "Maekawa2" : "Maekawa1") +
+                Instant.now() +
+                "_n=" + gp.numNodes() +
+                "_d=" + gp.meanInterRequestDelay() +
+                "_c=" + gp.meanCsExecutionTime() +
+                "_" + (isMaekawa2 ? "Maekawa2" : "Maekawa1") +
+                "_" + cleanedInputFileName +
                 "_log.csv");
 
         this.content = new ArrayList<>();
