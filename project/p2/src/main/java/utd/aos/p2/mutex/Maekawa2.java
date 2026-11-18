@@ -8,6 +8,8 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Phaser;
 
 import utd.aos.p2.chan.BufferedChan;
@@ -20,24 +22,25 @@ public class Maekawa2 implements Mutex {
     // can run.
     private PriorityQueue<Request> q;
     private BufferedChan<MutexData> workQueue;
+    private ExecutorService worker;
     private ScalarClock c;
 
     private Set<Integer> waitingFor;
-    private Set<Integer> outstandingLoans;
     private Phaser p;
     private Map<Integer, Pusher<MutexData>> outputsById;
     private Optional<Request> granted;
-    private int id;
+    public final int id;
     private boolean failed;
 
     private boolean debugMode;
     private boolean inCritical;
+    private boolean requesting;
+    private int requestTimestamp;
 
     public String toString() {
         return "{\"q\": " + q.toString() +
                 ", \"c\": " + c.toString() +
                 ", \"waitingFor\": " + waitingFor.toString() +
-                ", \"outstandingLoans\": " + outstandingLoans.toString() +
                 ", \"outputsById\": " + outputsById.toString() +
                 ", \"granted\": " + granted.toString() +
                 ", \"id\": " + id +
@@ -48,14 +51,18 @@ public class Maekawa2 implements Mutex {
 
     public Maekawa2(int myId, Pusher<MutexData> incoming, List<Pusher<MutexData>> outgoing,
             List<Integer> quoremMemberIds) {
-        this.q = new PriorityQueue<>((a, b) -> Integer.compare(a.timeStamp, b.timeStamp));
+        this.q = new PriorityQueue<>((a, b) -> {
+            int order = Integer.compare(a.timeStamp, b.timeStamp);
+            return order != 0 ? order : Integer.compare(a.senderId, b.senderId);
+        });
         this.workQueue = new BufferedChan<>();
+        this.worker = Executors.newSingleThreadExecutor(
+                Thread.ofVirtual().name("maekawa2-" + myId).factory());
         this.id = myId;
 
         this.c = new ScalarClock();
 
         this.waitingFor = new HashSet<>();
-        this.outstandingLoans = new HashSet<>();
         this.p = new Phaser(1);
 
         this.outputsById = new HashMap<>();
@@ -64,75 +71,46 @@ public class Maekawa2 implements Mutex {
                 .forEach((p) -> this.outputsById.put(p.getKey(), p.getValue()));
 
         this.granted = Optional.empty();
-        this.id = myId;
         this.failed = false;
         this.debugMode = false;
         this.inCritical = false;
 
-        incoming.registerCallback(workQueue::push);
+        // Serialize messages and local transitions without inline network callbacks.
+        incoming.registerCallback((in) -> worker.execute(() -> workQueue.push(in)));
 
         this.workQueue.registerCallback((in) -> {
             try {
-                boolean crit = false;
-                do {
-                    synchronized (this) {
-                        crit = this.inCritical;
-                    }
-                } while (crit);
-
                 debugLog("%d received %s\n", myId, in.toString());
 
                 switch (in) {
-                    // upon receiving request:
-                    // we do not have an outstanding grant:
-                    // -> then send a grant to the sender of the request.
-                    // we do have an outstanding grant to a lower process id:
-                    // -> send a failed to the sender of the request, and queue the request.
-                    // we do have an outstanding grant to a higher process id:
-                    // -> send an inquire message to the process we've granted to.
+                    // Reject busies without queuing a request that will be retried.
                     case Request r:
-
+                        c = c.receive(new ScalarClock(r.timeStamp)).send();
                         granted.ifPresentOrElse((grantedTo) -> {
-                            if (grantedTo.senderId < r.senderId) {
-                                debugLog("%d rejecting request %s\n", myId, r.toString());
-                                q.add(r);
-                                outputsById.get(r.senderId).push(new Failed(myId, r.timeStamp));
-                            } else {
-                                debugLog("%d inquiring about %s to %d\n", myId, r.toString(), grantedTo.senderId);
-                                outputsById.get(grantedTo.senderId).push(new Inquire(myId, r));
-                            }
+                            debugLog("%d rejecting request %s\n", myId, r.toString());
+                            outputsById.get(r.senderId).push(new Failed(myId, r.timeStamp));
                         }, () -> {
                             debugLog("%d granting %s\n", myId, r);
+                            q.add(r);
                             grant(r);
                         });
                         break;
 
-                    // upon receiving an inqury:
-                    // immediately fail and then yield to the incoming inquiry.
+                    // not using inquire for maekawa2
                     case Inquire i:
-                        synchronized(this) {
-                            failed = true;
-                            outstandingLoans.add(i.senderId);
-                            outputsById.get(i.senderId).push(new Yield(i.about.senderId, i.about.timeStamp));
-                        }
+                        throw new IllegalStateException("Unexpected inquiry from " + i.senderId);
 
-                        break;
-                    // upon receiving yield: send a grant to the process at the front of the queue.
-                    // place the incoming request into the queue.
+                    // not using yield for maekawa2
                     case Yield y:
-                        if (!q.isEmpty()) {
-                            debugLog("received yield, so granting to %d\n", q.peek().senderId);
-                            grant(q.peek());
-                        }
-                        q.add(new Request(y.id, y.ts));
-                        break;
-                    // upon receiving release: remove that item from the queue
-                    // and send a grant to the process at the front of the queue.
+                        throw new IllegalStateException("Unexpected yield from " + y.id);
+
+                    // for release, remove that item from the queue and send a grant to the process
+                    // at the front
                     case Release r:
                         if (!q.isEmpty()) {
                             debugLog("received release, removing %d from %s\n", r.id, q.toString());
                         } else {
-                            debugLog("%d queue is empty; this should never happen\n", this.id);
+                            debugLog("%d queue is empty\n", this.id);
                         }
                         q.removeIf((qr) -> qr.senderId == r.id);
                         if (!q.isEmpty()) {
@@ -145,22 +123,35 @@ public class Maekawa2 implements Mutex {
                         }
                         break;
 
+                    // when we get a grant, remove the loan for that, and if its the last thing
+                    // we're waiting for then
+                    // we can enter the critical section
                     case Grant g:
-                        outstandingLoans.remove(g.id);
-                        waitingFor.remove(g.id);
+                        if (!requesting || !waitingFor.remove(g.id)) {
+                            throw new IllegalStateException("Unexpected grant from " + g.id);
+                        }
                         if (waitingFor.isEmpty()) {
+                            inCritical = true;
                             debugLog("%d received last grant\n", this.id);
                             debugLog("registered parties: %s\n", p.getRegisteredParties());
                             p.arrive();
                             debugLog("%d arrived at %s!\n", this.id, p.getArrivedParties());
+                        } else {
+                            requestNextGrant();
                         }
 
                         break;
 
+                    // Release only acquired tokens, then retry the whole attempt.
                     case Failed f:
-                        q.add(new Request(f.id, c.counter));
-                        this.c = c.send();
-                        this.failed = true;
+                        if (requesting && !inCritical && f.ts == requestTimestamp) {
+                            this.failed = true;
+                            this.requesting = false;
+                            outputsById.keySet().stream()
+                                    .filter((id) -> !waitingFor.contains(id))
+                                    .forEach((id) -> workQueue.push(new SendReleaseTo(id)));
+                            p.arrive();
+                        }
                         break;
 
                     case SendReleaseTo srt:
@@ -174,65 +165,64 @@ public class Maekawa2 implements Mutex {
 
     @Override
     public void csEnter() {
-        // setup
-        synchronized (this) {
-            this.granted = Optional.empty();
+        // loop to retry until we get the resource
+        do {
+            // setup
+            CompletableFuture.runAsync(() -> {
+                this.failed = false;
+                this.requesting = true;
+                this.waitingFor = new HashSet<>(outputsById.keySet());
 
-            this.failed = false;
+                // only register if the arrive in the lambda will immediately unblock
+                if (p.getRegisteredParties() <= p.getArrivedParties() + 1)
+                    p.register();
+                requestTimestamp = c.counter;
+                c = c.send();
 
-            this.waitingFor = new HashMap<>(outputsById).keySet();
-            this.outstandingLoans = new HashSet<>();
+                if (waitingFor.isEmpty()) {
+                    inCritical = true;
+                    p.arrive();
+                } else {
+                    requestNextGrant();
+                }
+            }, worker).join();
 
-            // only register if the arrive in the lambda will immediately unblock
-            if (p.getRegisteredParties() <= p.getArrivedParties() + 1)
-                p.register();
-        }
-
-        int clockVal = c.counter;
-
-        CompletableFuture.runAsync(() -> {
-            outputsById.values().stream().forEach((o) -> {
-                o.push(new Request(id, clockVal));
-            });
-        });
-
-        synchronized (this) {
-            c = c.send();
-        }
-
-        // block until acquired
-        debugLog("%d waiting to arrive.\n", this.id);
-        p.arriveAndAwaitAdvance();
+            // block until acquired or the attempt fails
+            debugLog("%d waiting to arrive.\n", this.id);
+            p.arriveAndAwaitAdvance();
+        } while (failed);
         debugLog("%d entered critical.\n", this.id);
-
-        // in the critical section the other code must be blocked.
-        synchronized (this) {
-            inCritical = true;
-        }
 
     }
 
     @Override
     public void csLeave() {
-        // unblock the message handler.
-        synchronized (this) {
+        CompletableFuture.runAsync(() -> {
             debugLog("%d released critical flag.\n", this.id);
             inCritical = false;
-        }
+            requesting = false;
 
-        // and tell everyone in the quorum that we're done.
-        outputsById.keySet().stream().forEach((id) -> {
-                        workQueue.push(new SendReleaseTo(id));
-        });
+            // and tell everyone in the quorum that we're done.
+            outputsById.keySet().stream().forEach((id) -> {
+                workQueue.push(new SendReleaseTo(id));
+            });
+        }, worker).join();
     }
 
     public void enableLogging() {
         debugMode = true;
     }
 
+    // grant another request and do the bookkeeping
     synchronized private void grant(Request r) {
-        outputsById.get(r.senderId).push(new Grant(this.id));
         granted = Optional.of(r);
+        outputsById.get(r.senderId).push(new Grant(this.id));
+    }
+
+    // get the next grant, for when the queue isnt empty
+    private void requestNextGrant() {
+        int nextId = waitingFor.stream().min(Integer::compare).orElseThrow();
+        outputsById.get(nextId).push(new Request(id, requestTimestamp));
     }
 
     private void debugLog(String format, Object... objs) {
