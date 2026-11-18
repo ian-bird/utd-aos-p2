@@ -73,24 +73,9 @@ public class Main {
 
 		var n = new SettableNum(1);
 
+		final var until = params.globalParams().numNodes();
+
 		incoming.registerCallback((log) -> {
-			int val;
-			synchronized (n) {
-				val = n.n;
-			}
-
-			int until = params.globalParams().numNodes() * (params.globalParams().numRequestsPerNode() + 1);
-
-			System.out.println("received message " + val + " out of " + until);
-
-			if (val == until) {
-				logger.end_logging();
-			} else {
-				synchronized (n) {
-					n.setNum(val + 1);
-				}
-			}
-
 			switch (log.type()) {
 				case Entry:
 					logger.log_enter(log.nodeId(), log.ts());
@@ -106,6 +91,19 @@ public class Main {
 
 				case MessageCount:
 					logger.log_message_count(log.nodeId(), log.messageCount());
+
+					int val;
+					synchronized (n) {
+						val = n.n;
+						n.setNum(val + 1);
+					}
+
+					System.out.println("received final count " + val + " out of " + until);
+
+					if (val == until) {
+						logger.end_logging();
+					}
+
 					break;
 			}
 
